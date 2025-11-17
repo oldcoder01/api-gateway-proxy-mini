@@ -85,6 +85,36 @@
 				}
 			},
 			"response": []
+		},
+		{
+			"name": "New Item Copy",
+			"id": "837632-80539d6e-a176-484a-86f4-e8fa6e7d0d30",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{ \"name\": \"New item from API\" }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/items",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"items"
+					]
+				}
+			},
+			"response": []
 		}
 	]
 }
