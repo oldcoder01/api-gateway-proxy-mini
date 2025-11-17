@@ -146,6 +146,37 @@
 				}
 			},
 			"response": []
+		},
+		{
+			"name": "Item Delete",
+			"id": "837632-4b227109-8b58-438b-8840-6dc35134bc7d",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{ \"name\": \"Edit item from API\" }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/items/3",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"items",
+						"3"
+					]
+				}
+			},
+			"response": []
 		}
 	]
 }
