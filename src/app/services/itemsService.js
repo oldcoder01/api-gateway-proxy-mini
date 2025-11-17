@@ -1,18 +1,37 @@
 'use strict';
 
-// Later you’ll inject DynamoDB client here.
-// For now, return static data so the route works.
+const db = require('../db/client');
 
 async function getAllItems() {
-  return [
-    {
-      id: 'item-1',
-      name: 'Example item',
-      createdAt: new Date().toISOString()
-    }
-  ];
+  const result = await db.query(
+    'SELECT id, name, created_at FROM items ORDER BY created_at DESC'
+  );
+
+  return result.rows.map(function (row) {
+    return {
+      id: row.id,
+      name: row.name,
+      createdAt: row.created_at
+    };
+  });
+}
+
+async function createItem(name) {
+  const result = await db.query(
+    'INSERT INTO items (name) VALUES ($1) RETURNING id, name, created_at',
+    [name]
+  );
+
+  const row = result.rows[0];
+
+  return {
+    id: row.id,
+    name: row.name,
+    createdAt: row.created_at
+  };
 }
 
 module.exports = {
-  getAllItems
+  getAllItems,
+  createItem
 };
