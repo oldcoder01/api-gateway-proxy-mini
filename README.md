@@ -83,6 +83,13 @@ Current HTTP endpoints (Express / Docker mode):
 
 ---
 
+## Postman Collection
+
+```text
+postman/collections/837632-44454a9e-8cd0-449d-9c27-84e12a22ab54.json
+
+---
+
 ## Running Locally (Node only, no Docker)
 
 **Prerequisites**
