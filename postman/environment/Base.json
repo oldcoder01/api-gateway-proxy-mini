@@ -1,0 +1,15 @@
+{
+	"id": "a1a607bf-93f9-483b-b162-d1180a37da73",
+	"name": "api-gateway-proxy-mini",
+	"values": [
+		{
+			"key": "baseUrl",
+			"value": "",
+			"type": "default",
+			"enabled": true
+		}
+	],
+	"_postman_variable_scope": "environment",
+	"_postman_exported_at": "2025-11-17T13:29:56.163Z",
+	"_postman_exported_using": "Postman/11.72.1"
+}
