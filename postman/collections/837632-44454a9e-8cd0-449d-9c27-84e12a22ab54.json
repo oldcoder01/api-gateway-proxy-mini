@@ -117,7 +117,7 @@
 			"response": []
 		},
 		{
-			"name": "Item By ID Copy",
+			"name": "Item Edit",
 			"id": "837632-518e0bfc-50a2-4a15-b5c0-6a87639a34a4",
 			"protocolProfileBehavior": {
 				"disableBodyPruning": true
