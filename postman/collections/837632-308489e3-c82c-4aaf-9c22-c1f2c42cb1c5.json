@@ -55,6 +55,27 @@
 				}
 			},
 			"response": []
+		},
+		{
+			"name": "items Copy",
+			"id": "837632-6eeeed4c-d863-4699-91bd-99d98f93c2c0",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/items",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"items"
+					]
+				}
+			},
+			"response": []
 		}
 	]
 }
