@@ -65,6 +65,17 @@
 			"request": {
 				"method": "POST",
 				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "name",
+							"value": "New item from API",
+							"type": "text",
+							"uuid": "5ca760c7-678f-4641-afeb-2e563a15f9dc"
+						}
+					]
+				},
 				"url": {
 					"raw": "{{baseUrl}}/items",
 					"host": [
