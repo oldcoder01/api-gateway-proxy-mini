@@ -40,7 +40,7 @@ api-gateway-proxy-mini/
       router.js                # RouteKey → controller mapping
       controllers/
         healthController.js    # /status
-        itemsController.js     # /items (GET + POST)
+        itemsController.js     # /items CRUD
       services/
         itemsService.js        # DB-backed item logic
       utils/
@@ -50,6 +50,12 @@ api-gateway-proxy-mini/
 
   db/
     init.sql                   # Creates items table + seeds rows on first startup
+
+  postman/
+    collections/
+      837632-44454a9e-8cd0-449d-9c27-84e12a22ab54.json      # Postman test collection
+    environment/
+      base.json                                             # Postman base environment setup
 
   docs/
     ARCHITECTURE.md
@@ -67,8 +73,16 @@ Current HTTP endpoints (Express / Docker mode):
 
 - `GET /status`
   - Returns basic health/status info about the service.
+
 - `GET /items`
   - Returns all items from the `items` table in Postgres.
+
+- `GET /items/{id}`
+  - Returns a single item by numeric id.
+  - Response:
+    - `200` with item JSON if found.
+    - `404` if the item does not exist.
+
 - `POST /items`
   - Creates a new item in the database.
   - Request body (JSON):
@@ -79,17 +93,39 @@ Current HTTP endpoints (Express / Docker mode):
     }
     ```
 
-  - Response: the created item (id, name, createdAt).
+  - Response: `201` with the created item (id, name, createdAt).
+
+- `PUT /items/{id}`
+  - Updates the name of an existing item.
+  - Request body (JSON):
+
+    ```json
+    {
+      "name": "Updated name"
+    }
+    ```
+
+  - Response:
+    - `200` with the updated item.
+    - `404` if the item does not exist.
+
+- `DELETE /items/{id}`
+  - Deletes an existing item.
+  - Response:
+    - `204` on successful delete.
+    - `404` if the item does not exist.
 
 ---
 
 ## Postman
 
 - Environment
-    - postman/environment/Base.json
+  - `postman/environment/base.json`
 
 - Collection
-    - postman/collections/837632-44454a9e-8cd0-449d-9c27-84e12a22ab54.json
+  - `postman/collections/837632-44454a9e-8cd0-449d-9c27-84e12a22ab54.json`
+
+The collection uses a `baseUrl` variable so you can switch environments (local Node, local Docker, AWS, etc.) without changing each request.
 
 ---
 
@@ -97,7 +133,7 @@ Current HTTP endpoints (Express / Docker mode):
 
 **Prerequisites**
 
-- Node.js 18+ (you’re on 22, which is fine)
+- Node.js 18+ (you are on 22, which is fine)
 - A running Postgres instance, or update env vars to point at your chosen DB
 
 **Steps**
@@ -118,12 +154,15 @@ Server will listen on:
 http://localhost:3000
 ```
 
-Test endpoints:
+Test endpoints (examples):
 
 ```text
-GET http://localhost:3000/status
-GET http://localhost:3000/items
-POST http://localhost:3000/items
+GET    http://localhost:3000/status
+GET    http://localhost:3000/items
+GET    http://localhost:3000/items/1
+POST   http://localhost:3000/items
+PUT    http://localhost:3000/items/1
+DELETE http://localhost:3000/items/1
 ```
 
 ---
@@ -165,10 +204,21 @@ curl http://localhost:3000/status
 # List items
 curl http://localhost:3000/items
 
+# Get one item by id
+curl http://localhost:3000/items/1
+
 # Create a new item (PowerShell escaping)
 curl -X POST http://localhost:3000/items ^
   -H "Content-Type: application/json" ^
-  -d "{\"name\":\"New item from API\"}"
+  -d "{"name":"New item from API"}"
+
+# Update an item
+curl -X PUT http://localhost:3000/items/1 ^
+  -H "Content-Type: application/json" ^
+  -d "{"name":"Updated name"}"
+
+# Delete an item
+curl -X DELETE http://localhost:3000/items/1
 ```
 
 Or using a GUI client (Postman, Insomnia) with the same URLs and JSON bodies.
@@ -205,11 +255,10 @@ The API maps DB rows → JSON with fields:
 
 ## Next Steps / Roadmap
 
-- Add more CRUD endpoints for `/items` (GET by id, PUT, DELETE).
-- Add basic validation and error mapping.
+- Add basic validation and error mapping across all endpoints.
 - Containerize for AWS deployment:
   - Build + push image to ECR.
-  - ECS/Fargate service with a public ALB.
+  - ECS/Fargate service with a public ALB and RDS Postgres.
 - Or wire the existing router + controllers to API Gateway + Lambda via `httpApiHandler.js` for the serverless variant.
 
 For more detail on structure and flows, see:

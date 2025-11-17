@@ -29,7 +29,7 @@ docker compose up --build       # build images and start services
 
 ```bash
 docker compose up --build
-# or (if you didn't change code):
+# or (if you did not change code):
 docker compose up
 ```
 
@@ -44,7 +44,10 @@ Examples:
 ```bash
 curl http://localhost:3000/status
 curl http://localhost:3000/items
+curl http://localhost:3000/items/1
 ```
+
+You can then use `POST`, `PUT`, and `DELETE` against `/items` for full CRUD.
 
 ---
 
@@ -77,6 +80,8 @@ The server listens on `PORT` env (default `3000`):
 http://localhost:3000/status
 http://localhost:3000/items
 ```
+
+You can exercise all endpoints as documented in `README.md`.
 
 ---
 
@@ -122,7 +127,10 @@ Compress-Archive -Path src, node_modules, package.json -DestinationPath lambda-p
 2. Add routes:
    - `GET /status`
    - `GET /items`
+   - `GET /items/{id}`
    - `POST /items`
+   - `PUT /items/{id}`
+   - `DELETE /items/{id}`
 3. For each route, set the integration to your Lambda function.
 4. Deploy to a stage (e.g. default).
 5. Test via the Invoke URL, e.g.:
@@ -131,9 +139,10 @@ Compress-Archive -Path src, node_modules, package.json -DestinationPath lambda-p
    GET https://xxxxxx.execute-api.<region>.amazonaws.com/status
    ```
 
-> Note: For Lambda + API Gateway using Postgres, you’ll also need:
+> Note: For Lambda + API Gateway using Postgres, you will also need:
 > - Network access to the DB (RDS or self-hosted),
-> - Correct `DB_*` env vars configured on the Lambda function.
+> - Correct `DB_*` env vars configured on the Lambda function,
+> - Potentially a VPC attachment if you use RDS in private subnets.
 
 ---
 

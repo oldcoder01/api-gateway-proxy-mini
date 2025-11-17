@@ -36,7 +36,10 @@ Client (curl/Postman/Browser)
   - Defines HTTP routes:
     - `GET /status`
     - `GET /items`
+    - `GET /items/:id`
     - `POST /items`
+    - `PUT /items/:id`
+    - `DELETE /items/:id`
   - Delegates actual work to controllers so the same business logic can be reused from Lambda.
 
 - **Controllers (`src/app/controllers/*`)**
@@ -45,11 +48,17 @@ Client (curl/Postman/Browser)
     - Returns service status, service name, request id, and timestamp.
   - **`itemsController.js`**
     - `listItems(event, context)` – fetches all items.
+    - `getItemByIdHandler(event, context)` – fetches one item by id.
     - `createItemHandler(event, context)` – creates a new item from `event.body`.
+    - `updateItemHandler(event, context)` – updates an existing item.
+    - `deleteItemHandler(event, context)` – deletes an item by id.
 
 - **Services (`src/app/services/itemsService.js`)**
   - `getAllItems()` – queries the database for all items, sorted by `created_at` desc.
+  - `getItemById(id)` – queries for a single item by id.
   - `createItem(name)` – inserts a new item and returns the created row.
+  - `updateItem(id, name)` – updates the name of an item and returns the updated row.
+  - `deleteItem(id)` – deletes an item and returns a boolean indicating success.
   - Contains the domain/business logic and DB access; controllers stay thin.
 
 - **DB Client (`src/app/db/client.js`)**
@@ -115,7 +124,7 @@ Note the camelCase `createdAt` in JSON vs `created_at` in the DB.
 - Request flow:
 
   ```text
-  HTTP request (/status or /items)
+  HTTP request (/status or /items/*)
       -> Express route handler
       -> controller function
       -> service function
@@ -132,7 +141,10 @@ Note the camelCase `createdAt` in JSON vs `created_at` in the DB.
 
   - `GET /status`
   - `GET /items`
+  - `GET /items/{id}`
   - `POST /items`
+  - `PUT /items/{id}`
+  - `DELETE /items/{id}`
 
 - Request flow in Lambda mode:
 
@@ -174,7 +186,7 @@ In `docker-compose.yml`, these are wired automatically for the `api` service.
 
 ## Extension Points
 
-- Add more routes to `router.js` and mirror them in `server.js`.
+- Add more resources beyond `/items` (users, orders, etc.) with similar controller/service patterns.
 - Extend the data model (extra tables, relations) with additional SQL migrations / init scripts.
 - Introduce validation/middleware layers around controllers for auth, logging, etc.
 - Add infra-as-code:
