@@ -127,7 +127,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{ \"name\": \"New item from API\" }",
+					"raw": "{ \"name\": \"Edit item from API\" }",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -135,12 +135,13 @@
 					}
 				},
 				"url": {
-					"raw": "{{baseUrl}}/items",
+					"raw": "{{baseUrl}}/items/3",
 					"host": [
 						"{{baseUrl}}"
 					],
 					"path": [
-						"items"
+						"items",
+						"3"
 					]
 				}
 			},
