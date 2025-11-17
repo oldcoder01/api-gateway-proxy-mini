@@ -1,0 +1,16 @@
+{
+  "name": "api-gateway-proxy-mini",
+  "version": "1.0.0",
+  "description": "API Gateway HTTP API -> Lambda + Dockerized Node API for AWS SAA practice.",
+  "main": "src/handlers/httpApiHandler.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "lint": "echo \"(add ESLint later)\"",
+    "test": "echo \"(tests go here later)\""
+  },
+  "dependencies": {
+    "express": "^4.19.0",
+    "uuid": "^9.0.0"
+  }
+}
