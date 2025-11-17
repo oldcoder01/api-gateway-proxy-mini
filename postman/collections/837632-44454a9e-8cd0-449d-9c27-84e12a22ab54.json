@@ -87,7 +87,7 @@
 			"response": []
 		},
 		{
-			"name": "New Item Copy",
+			"name": "Item By ID",
 			"id": "837632-80539d6e-a176-484a-86f4-e8fa6e7d0d30",
 			"protocolProfileBehavior": {
 				"disableBodyPruning": true
