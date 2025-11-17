@@ -115,6 +115,36 @@
 				}
 			},
 			"response": []
+		},
+		{
+			"name": "Item By ID Copy",
+			"id": "837632-518e0bfc-50a2-4a15-b5c0-6a87639a34a4",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{ \"name\": \"New item from API\" }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/items",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"items"
+					]
+				}
+			},
+			"response": []
 		}
 	]
 }
