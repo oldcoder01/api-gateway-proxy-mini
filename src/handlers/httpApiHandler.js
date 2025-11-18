@@ -1,12 +1,30 @@
 'use strict';
 
 const { routeRequest } = require('../app/router');
-const { jsonResponse } = require('../app/utils/response');
+const { toLambdaResponse, toLambdaError } = require('../app/utils/response');
 
-exports.handler = async (event, context) => {
+/**
+ * Lambda handler for API Gateway HTTP API.
+ *
+ * Expects events that include:
+ * - routeKey (e.g. "GET /items", "POST /items")
+ * - pathParameters
+ * - body
+ * - requestContext
+ */
+exports.handler = async function (event, context) {
   try {
-    // For HTTP API (v2) request context
-    const routeKey = event.routeKey || `${event.requestContext.http.method} ${event.requestContext.http.path}`;
+    var routeKey = event && event.routeKey ? event.routeKey : null;
+
+    if (!routeKey) {
+      return toLambdaResponse({
+        statusCode: 400,
+        body: {
+          error: 'BadRequest',
+          message: 'Missing routeKey on event.'
+        }
+      });
+    }
 
     const result = await routeRequest({
       routeKey: routeKey,
@@ -14,16 +32,8 @@ exports.handler = async (event, context) => {
       context: context
     });
 
-    return jsonResponse(result.statusCode, result.body);
+    return toLambdaResponse(result);
   } catch (error) {
-    console.error('[httpApiHandler] Unhandled error', {
-      message: error.message,
-      stack: error.stack
-    });
-
-    return jsonResponse(500, {
-      error: 'InternalServerError',
-      message: 'Something went wrong.'
-    });
+    return toLambdaError(error);
   }
 };

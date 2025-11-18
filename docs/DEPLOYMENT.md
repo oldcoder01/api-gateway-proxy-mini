@@ -146,6 +146,8 @@ Compress-Archive -Path src, node_modules, package.json -DestinationPath lambda-p
 
 ---
 
+See [RDS_SETUP.md](docs/RDS_SETUP.md) for full Postgres/RDS wiring details.
+
 ## 4. Container Deployment to AWS (Planned)
 
 Eventually, this same container image can be deployed to AWS using:

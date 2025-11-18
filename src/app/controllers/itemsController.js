@@ -8,6 +8,8 @@ const {
   deleteItem
 } = require('../services/itemsService');
 
+const { badRequest, notFound } = require('../utils/errors');
+
 function parseBody(event) {
   var payload = event && event.body ? event.body : {};
 
@@ -16,13 +18,7 @@ function parseBody(event) {
       payload = JSON.parse(payload);
     } catch (error) {
       return {
-        error: {
-          statusCode: 400,
-          body: {
-            error: 'BadRequest',
-            message: 'Invalid JSON body'
-          }
-        }
+        error: badRequest('Invalid JSON body', error.message)
       };
     }
   }
@@ -33,13 +29,7 @@ function parseBody(event) {
 function parseId(pathParameters) {
   if (!pathParameters || !pathParameters.id) {
     return {
-      error: {
-        statusCode: 400,
-        body: {
-          error: 'BadRequest',
-          message: 'Path parameter "id" is required.'
-        }
-      }
+      error: badRequest('Path parameter "id" is required.')
     };
   }
 
@@ -48,13 +38,7 @@ function parseId(pathParameters) {
 
   if (Number.isNaN(id)) {
     return {
-      error: {
-        statusCode: 400,
-        body: {
-          error: 'BadRequest',
-          message: 'Path parameter "id" must be a number.'
-        }
-      }
+      error: badRequest('Path parameter "id" must be a number.')
     };
   }
 
@@ -82,13 +66,7 @@ async function getItemByIdHandler(event, context) {
   const item = await getItemById(parsed.id);
 
   if (!item) {
-    return {
-      statusCode: 404,
-      body: {
-        error: 'NotFound',
-        message: 'Item with id ' + parsed.id + ' not found.'
-      }
-    };
+    return notFound('Item with id ' + parsed.id + ' not found.');
   }
 
   return {
@@ -107,13 +85,7 @@ async function createItemHandler(event, context) {
   const payload = result.payload;
 
   if (!payload.name || typeof payload.name !== 'string') {
-    return {
-      statusCode: 400,
-      body: {
-        error: 'BadRequest',
-        message: 'Field "name" is required and must be a string.'
-      }
-    };
+    return badRequest('Field "name" is required and must be a string.');
   }
 
   const item = await createItem(payload.name);
@@ -140,25 +112,13 @@ async function updateItemHandler(event, context) {
   const payload = bodyResult.payload;
 
   if (!payload.name || typeof payload.name !== 'string') {
-    return {
-      statusCode: 400,
-      body: {
-        error: 'BadRequest',
-        message: 'Field "name" is required and must be a string.'
-      }
-    };
+    return badRequest('Field "name" is required and must be a string.');
   }
 
   const item = await updateItem(idResult.id, payload.name);
 
   if (!item) {
-    return {
-      statusCode: 404,
-      body: {
-        error: 'NotFound',
-        message: 'Item with id ' + idResult.id + ' not found.'
-      }
-    };
+    return notFound('Item with id ' + idResult.id + ' not found.');
   }
 
   return {
@@ -177,13 +137,7 @@ async function deleteItemHandler(event, context) {
   const deleted = await deleteItem(parsed.id);
 
   if (!deleted) {
-    return {
-      statusCode: 404,
-      body: {
-        error: 'NotFound',
-        message: 'Item with id ' + parsed.id + ' not found.'
-      }
-    };
+    return notFound('Item with id ' + parsed.id + ' not found.');
   }
 
   return {

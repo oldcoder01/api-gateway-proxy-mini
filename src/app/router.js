@@ -8,11 +8,12 @@ const {
   updateItemHandler,
   deleteItemHandler
 } = require('./controllers/itemsController');
+const { notFound } = require('./utils/errors');
 
 async function routeRequest(options) {
-  const routeKey = options.routeKey;
-  const rawEvent = options.rawEvent;
-  const context = options.context;
+  var routeKey = options.routeKey;
+  var rawEvent = options.rawEvent;
+  var context = options.context;
 
   switch (routeKey) {
     case 'GET /status':
@@ -34,13 +35,7 @@ async function routeRequest(options) {
       return await deleteItemHandler(rawEvent, context);
 
     default:
-      return {
-        statusCode: 404,
-        body: {
-          error: 'NotFound',
-          message: 'No route for ' + routeKey
-        }
-      };
+      return notFound('No route for ' + routeKey);
   }
 }
 
