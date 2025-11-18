@@ -1,0 +1,15 @@
+{
+	"id": "bc52aed2-b4f2-47ec-a29f-0edfc788702a",
+	"name": "AWS_Terraform_api-gateway-proxy-mini",
+	"values": [
+		{
+			"key": "baseUrl",
+			"value": "",
+			"type": "default",
+			"enabled": true
+		}
+	],
+	"_postman_variable_scope": "environment",
+	"_postman_exported_at": "2025-11-18T04:09:04.145Z",
+	"_postman_exported_using": "Postman/11.72.1"
+}
