@@ -7,6 +7,10 @@ package-lock.json
 pnpm-lock.yaml
 yarn.lock
 
+# Build output
+dist/
+coverage/
+
 # Local env/config
 .env
 .env.local
@@ -16,10 +20,6 @@ yarn.lock
 logs/
 *.log
 *.log.*
-npm-debug.log*
-debug.log
-dist/
-coverage/
 
 # OS junk
 .DS_Store
@@ -35,3 +35,16 @@ Thumbs.db
 .serverless/
 .aws-sam/
 cdk.out/
+
+# Lambda package (built from src + node_modules)
+lambda-package.zip
+
+# Terraform state & cache
+infra/terraform/.terraform/
+infra/terraform/.terraform.lock.hcl
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.backup
+infra/terraform/crash.log
+
+# Terraform local vars (has secrets)
+infra/terraform/terraform.tfvars

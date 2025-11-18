@@ -58,7 +58,8 @@ api-gateway-proxy-mini/
     collections/
       837632-44454a9e-8cd0-449d-9c27-84e12a22ab54.json      # Postman test collection
     environment/
-      base.json                                             # Base Postman environment (uses baseUrl variable)
+      base.json                                             # Base Postman environment
+      aws.json                                             # AWS Postman environment
 
   docs/
     ARCHITECTURE.md

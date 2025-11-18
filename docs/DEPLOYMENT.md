@@ -1,222 +1,339 @@
-# Deployment – API Gateway Proxy Mini
+# Deployment Guide
 
-This document describes how to:
+This project supports three main deployment modes:
 
-1. Run the service locally in Docker (current main workflow).
-2. Run the service locally via Node only.
-3. Package and deploy the service as an AWS Lambda behind an HTTP API.
-4. (Planned) Deploy the containerized service to ECS/Fargate.
+1. **Local development (Node.js directly)**
+2. **Local development (Docker Compose)**
+3. **AWS deployment (Lambda + HTTP API + RDS via Terraform)** ← recommended for cloud
 
 ---
 
-## 1. Local Deployment – Docker + docker-compose (Recommended)
+## 1. Prerequisites
 
-This is the default dev/test deployment.
+### Local development
 
-### First-Time Setup / Reset
+- Node.js 20+
+- npm
+- Git
+- Optional: Docker Desktop (for the Docker-based Postgres stack)
+- Optional: Postman (for API testing)
+
+### AWS deployment
+
+- AWS account
+- IAM user with permissions for:
+  - Lambda
+  - API Gateway v2 (HTTP APIs)
+  - IAM roles/policies
+  - RDS (already created in this flow)
+- AWS CLI v2 installed and configured on your machine:
+  - `aws configure` with valid access key, secret, and default region (e.g. `us-west-1`)
+- Terraform installed on your machine
+  - `terraform -version` should show a recent 1.5+ version
+
+---
+
+## 2. Local Development (Node.js only)
+
+Run the API directly on your machine using a local Postgres instance or RDS.
+
+### 2.1 Install dependencies
 
 From the project root:
 
 ```bash
-docker compose down -v          # stop containers and remove volumes (DB reset)
-docker compose up --build       # build images and start services
+npm install
 ```
 
-- `api` service: Node + Express API (`src/server.js`)
-- `db` service: Postgres 16 (`postgres:16-alpine`)
-  - Runs `db/init.sql` on first startup to create schema and seed data.
+### 2.2 Configure environment
 
-### Normal Start (keeping DB data)
+Create a `.env` file at the project root (values are examples):
+
+```ini
+PORT=3000
+
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=app_db
+DB_USER=app_user
+DB_PASSWORD=app_password
+DB_SSL=false
+```
+
+Adjust DB settings to point at your local or cloud Postgres.
+
+### 2.3 Start the API
+
+```bash
+npm start
+```
+
+The API listens on `http://localhost:3000` by default.
+
+### 2.4 Test endpoints
+
+If you have Postman, set your environment:
+
+- `baseUrl = http://localhost:3000`
+
+Then test:
+
+- `GET {{baseUrl}}/status`
+- `GET {{baseUrl}}/items`
+- `POST {{baseUrl}}/items`
+- `PUT {{baseUrl}}/items/{id}`
+- `DELETE {{baseUrl}}/items/{id}`
+
+---
+
+## 3. Local Development (Docker Compose)
+
+This mode runs the Node API **and** Postgres together via Docker.
+
+### 3.1 Requirements
+
+- Docker Desktop installed and running
+
+### 3.2 Start the stack
+
+From the project root:
 
 ```bash
 docker compose up --build
-# or (if you did not change code):
-docker compose up
 ```
 
-The API will be available at:
+This will:
 
-```text
-http://localhost:3000
-```
+- Build the `api` image
+- Start:
+  - `api-gateway-proxy-mini-api` (Node)
+  - `api-gateway-proxy-mini-db` (Postgres 16)
 
-Examples:
+Postgres is initialized using `db/init.sql`, which:
+
+- Creates the `app_db` database (if not already present).
+- Creates and seeds an `items` table.
+
+### 3.3 Test via Postman
+
+Set Postman environment:
+
+- `baseUrl = http://localhost:3000`
+
+Then call:
+
+- `GET {{baseUrl}}/status`
+- `GET {{baseUrl}}/items`
+
+You should see two seeded items from `init.sql`.
+
+To tear down the stack:
 
 ```bash
-curl http://localhost:3000/status
-curl http://localhost:3000/items
-curl http://localhost:3000/items/1
+docker compose down
 ```
-
-You can then use `POST`, `PUT`, and `DELETE` against `/items` for full CRUD.
 
 ---
 
-## 2. Local Deployment – Node Only (Without Docker)
+## 4. AWS Deployment (Lambda + HTTP API + RDS via Terraform)
 
-If you prefer to run just Node (e.g., debugging, stepping through):
+This mode uses Terraform to deploy:
 
-1. Ensure you have a Postgres instance running and reachable.
-2. Set environment variables to point at that DB:
+- IAM role for Lambda
+- Lambda function (Node 20, using the same code as local)
+- HTTP API in API Gateway v2 with the existing routes:
+  - `/status`
+  - `/items`
+  - `/items/{id}`
+- `$default` stage with auto-deploy
 
-   ```bash
-   # Example (POSIX shells)
-   export DB_HOST=localhost
-   export DB_PORT=5432
-   export DB_USER=app_user
-   export DB_PASSWORD=app_password
-   export DB_NAME=app_db
-   ```
+The Lambda is configured to talk to an **existing RDS Postgres instance** (not created by Terraform in this flow). That RDS should already have:
 
-3. Install dependencies and start:
+- Database: `app_db`
+- User: e.g. `app_user`
+- `items` table seeded by `init.sql`
 
-   ```bash
-   npm install
-   npm start
-   ```
+> If you haven’t run `init.sql` against RDS yet, do that first (from CloudShell or your own machine with `psql`, with SSL enabled).
 
-The server listens on `PORT` env (default `3000`):
+### 4.1 Build the Lambda package
 
-```text
-http://localhost:3000/status
-http://localhost:3000/items
-```
-
-You can exercise all endpoints as documented in `README.md`.
-
----
-
-## 3. Serverless Deployment – Lambda + API Gateway HTTP API
-
-The codebase also supports a Lambda-style entry via:
-
-- `src/handlers/httpApiHandler.js`
-- `src/app/router.js`
-
-In this mode, controllers and services are reused from the Lambda handler, and the database is RDS Postgres (`app_db`) configured as described in `docs/RDS_SETUP.md`.
-
-### 3.1 Build a Lambda Zip
-
-From project root:
+From the project root, build a deployment zip:
 
 ```bash
+cd path/to/api-gateway-proxy-mini
+
+# Install dependencies without dev dependencies
 npm install --omit=dev
 
-# Linux/macOS
-zip -r lambda-package.zip src node_modules package.json
-
-# Windows PowerShell
+# Create lambda-package.zip (src + node_modules + package.json)
 Compress-Archive -Path src, node_modules, package.json -DestinationPath lambda-package.zip -Force
 ```
 
-### 3.2 Create / Update Lambda Function (Manual Console Flow)
+This produces:
 
-1. In AWS Console → Lambda → **Create function**
-   - Author from scratch
-   - Runtime: Node.js 18.x or 20.x
-   - Function name: `api-gateway-proxy-mini`
-2. Set **handler** to:
+- `lambda-package.zip` at the project root.
 
-   ```text
-   src/handlers/httpApiHandler.handler
-   ```
+Terraform will reference this file.
 
-3. Upload `lambda-package.zip` as the function code.
-4. Configure environment variables for RDS (see `docs/RDS_SETUP.md`):
-   - `DB_HOST` – RDS endpoint
-   - `DB_PORT` – usually `5432`
-   - `DB_USER`, `DB_PASSWORD`
-   - `DB_NAME` – `app_db`
-   - `DB_SSL` – `true`
-5. Save/Deploy the function.
+### 4.2 Terraform layout
 
-You can test directly from the Lambda console using events that set `routeKey` and optional `pathParameters` and `body`.
+Terraform lives under:
 
-### 3.3 Wire to API Gateway HTTP API (Manual Console Flow)
+```text
+infra/terraform/
+  main.tf
+  variables.tf
+  outputs.tf
+  terraform.tfvars       # local-only, not committed (contains secrets)
+```
 
-1. Create an **HTTP API** in API Gateway.
-2. Add routes:
+### 4.3 Configure Terraform variables
 
-   - `GET /status`
-   - `GET /items`
-   - `GET /items/{id}`
-   - `POST /items`
-   - `PUT /items/{id}`
-   - `DELETE /items/{id}`
+In `infra/terraform/terraform.tfvars` (do not commit this file), configure:
 
-3. For each route, set the integration to your Lambda function.
-4. Deploy to a stage (e.g. `default`).
-5. Copy the **Invoke URL**, e.g.:
+```hcl
+aws_region  = "us-west-1"
+project_name = "api-gateway-proxy-mini"
+environment  = "tfdev"
 
-   ```text
-   https://<api-id>.execute-api.<region>.amazonaws.com/default
-   ```
+# Existing RDS instance details
+db_host     = "your-rds-endpoint.rds.amazonaws.com"
+db_name     = "app_db"
+db_username = "app_user"
+db_password = "your_strong_password"
+```
 
-6. Use this as the `baseUrl` value in a Postman environment to exercise the cloud deployment with the same collection you use locally.
+- `aws_region` must match your RDS and where you want Lambda/API Gateway.
+- `project_name` and `environment` combine to form resource names like
+  - `api-gateway-proxy-mini-tfdev-lambda`
+  - `api-gateway-proxy-mini-tfdev-http-api`
 
-> Note: For Lambda + API Gateway using Postgres, you will also need:
-> - Network access to the DB (RDS, configured with public access and SGs suitable for dev, or a VPC attachment for production),
-> - Correct `DB_*` env vars configured on the Lambda function,
-> - SSL enabled (`DB_SSL=true`) if RDS requires encrypted connections.
+### 4.4 Initialize Terraform
 
-See [docs/RDS_SETUP.md](docs/RDS_SETUP.md) for full Postgres/RDS wiring details.
+From `infra/terraform`:
+
+```bash
+cd infra/terraform
+
+terraform init
+```
+
+This:
+
+- Downloads the AWS provider.
+- Sets up the local `.terraform` directory.
+
+### 4.5 Review the plan
+
+```bash
+terraform plan
+```
+
+You should see Terraform planning to **create**:
+
+- 1 IAM role for Lambda
+- 1 IAM role policy attachment (for CloudWatch logs)
+- 1 Lambda function
+- 1 HTTP API
+- 1 integration
+- 6 routes (`/status`, `/items`, `/items/{id}` for GET/POST/PUT/DELETE)
+- 1 `$default` stage
+- 1 Lambda permission
+
+If the plan looks sane, proceed.
+
+### 4.6 Apply the changes
+
+```bash
+terraform apply
+```
+
+Type `yes` at the prompt.
+
+On success, Terraform prints outputs, including:
+
+- `lambda_function_name`
+- `http_api_invoke_url` (for example: `https://abc123.execute-api.us-west-1.amazonaws.com`)
+
+### 4.7 Test the AWS HTTP API via Postman
+
+In Postman, set your environment:
+
+- `baseUrl = <http_api_invoke_url>`
+
+Then:
+
+- `GET {{baseUrl}}/status`
+- `GET {{baseUrl}}/items`
+- `POST {{baseUrl}}/items`
+- `PUT {{baseUrl}}/items/{id}`
+- `DELETE {{baseUrl}}/items/{id}`
+
+The behavior should match your local and Docker-based API, using the same `app_db.items` table on RDS.
 
 ---
 
-## 4. Container Deployment to AWS (Planned)
+## 5. Terraform State and Git
 
-Eventually, this same container image can be deployed to AWS using:
+Terraform creates state files and cache under `infra/terraform`. These **must not** be committed to Git.
 
-1. **Build image locally**:
+Root `.gitignore` should include:
 
-   ```bash
-   docker build -t api-gateway-proxy-mini-api .
-   ```
+```gitignore
+# Terraform
+infra/terraform/.terraform/
+infra/terraform/.terraform.lock.hcl
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.backup
+infra/terraform/crash.log
+infra/terraform/terraform.tfvars
 
-2. **Tag & push to ECR** (conceptual; exact commands depend on your account/region):
+# Lambda zip
+lambda-package.zip
+```
 
-   ```bash
-   # after aws ecr get-login-password etc.
-   docker tag api-gateway-proxy-mini-api:latest <your-account>.dkr.ecr.<region>.amazonaws.com/api-gateway-proxy-mini-api:latest
-   docker push <your-account>.dkr.ecr.<region>.amazonaws.com/api-gateway-proxy-mini-api:latest
-   ```
+Terraform should be treated as the source of truth for:
 
-3. **Create ECS service (Fargate)**:
-   - Task definition:
-     - Container image: ECR image above.
-     - Port mapping: container `3000`.
-   - Service:
-     - Behind an Application Load Balancer (ALB).
-     - Public-facing, with security group allowing HTTP/HTTPS.
+- The Lambda function used in AWS
+- The IAM role and permissions
+- The HTTP API configuration and routes
 
-4. **Database**:
-   - Use RDS for managed Postgres.
-   - Update task definition environment:
-     - `DB_HOST` – RDS endpoint
-     - `DB_PORT` – usually `5432`
-     - `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+If you later change the API code:
 
-This gives you a clear path from:
-
-- **Local dev** → Docker + Postgres  
-- → **Lambda + API Gateway** for serverless  
-- → **ECS/Fargate** for containerized production workloads.
+1. Rebuild `lambda-package.zip`.
+2. Run `terraform apply` again to push the updated code.
 
 ---
 
-## 5. Git & CI/CD (Future Enhancements)
+## 6. Cleaning Up AWS Resources
 
-- Add a CI pipeline (GitHub Actions, GitLab CI, etc.) to:
-  - Run tests / lint (once you add them).
-  - Build Docker image.
-  - Optionally push to ECR on main branch or tagged releases.
-- Add infra-as-code (Terraform / CDK) to:
-  - Create ECR repo.
-  - Provision ECS service + ALB.
-  - Provision RDS and associated networking.
+To tear down the Terraform-managed stack (without affecting anything you created manually outside Terraform):
 
-For now, the key is that you have **a documented, repeatable process** for:
+From `infra/terraform`:
 
-- Running locally (Node & Docker),
-- Packaging and deploying to Lambda + API Gateway,
-- And a clear conceptual path to AWS container deployment.
+```bash
+terraform destroy
+```
+
+Type `yes` to confirm.
+
+Terraform will delete:
+
+- The Lambda function it created
+- The IAM role and its policy attachment
+- The HTTP API, routes, stage, and Lambda permission
+
+This does **not** delete your RDS instance, since in this flow RDS is not managed by Terraform.
+
+---
+
+## 7. Summary
+
+- **Local Node**: `npm start`, hits any Postgres you configure in `.env`.
+- **Local Docker**: `docker compose up --build`, Node + Postgres in containers, seeded via `db/init.sql`.
+- **AWS (Terraform)**:
+  - `lambda-package.zip` built from the Node project.
+  - Terraform creates Lambda + HTTP API wired to your existing RDS.
+  - Postman points at `{{baseUrl}} = http_api_invoke_url`.
+
+This gives you a clean, repeatable path from local dev to a real AWS deployment using infrastructure-as-code.
