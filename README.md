@@ -7,7 +7,8 @@ It gives you:
 - A **Node.js + Express** API with a simple internal structure (router → controllers → services).
 - A **PostgreSQL** database wired in for real `/items` CRUD.
 - A **Dockerfile** and **docker-compose** so you can run the whole stack locally.
-- A shared controller/service layer that can also be reused from a **Lambda handler** later.
+- A shared controller/service layer that can also be reused from a **Lambda handler**.
+- A working **AWS Lambda + API Gateway + RDS Postgres** deployment path you can talk through in interviews.
 
 ---
 
@@ -17,9 +18,10 @@ It gives you:
 - **Web framework:** Express
 - **Database:** PostgreSQL 16 (via `pg` + connection pool)
 - **Container:** Docker, docker-compose
-- **Planned cloud runtimes:**
-  - Container image → ECR → ECS/Fargate (or similar)
-  - Lambda + API Gateway (via `src/handlers/httpApiHandler.js` and `src/app/router.js`)
+- **Cloud runtimes supported:**
+  - Local / Docker: Express API + Postgres container
+  - Lambda + API Gateway HTTP API (handler: `src/handlers/httpApiHandler.js`)
+  - RDS Postgres (`app_db`) as the cloud database
 
 ---
 
@@ -35,9 +37,9 @@ api-gateway-proxy-mini/
   src/
     server.js                  # Express HTTP server (local + container)
     handlers/
-      httpApiHandler.js        # Lambda entrypoint (for future API Gateway integration)
+      httpApiHandler.js        # Lambda entrypoint for API Gateway HTTP API
     app/
-      router.js                # RouteKey → controller mapping
+      router.js                # routeKey → controller mapping (Lambda)
       controllers/
         healthController.js    # /status
         itemsController.js     # /items CRUD
@@ -45,6 +47,7 @@ api-gateway-proxy-mini/
         itemsService.js        # DB-backed item logic
       utils/
         response.js            # JSON response helper for Lambda
+        errors.js              # badRequest/notFound/internalError helpers
       db/
         client.js              # Postgres Pool + query helper
 
@@ -55,11 +58,12 @@ api-gateway-proxy-mini/
     collections/
       837632-44454a9e-8cd0-449d-9c27-84e12a22ab54.json      # Postman test collection
     environment/
-      base.json                                             # Postman base environment setup
+      base.json                                             # Base Postman environment (uses baseUrl variable)
 
   docs/
     ARCHITECTURE.md
     DEPLOYMENT.md
+    RDS_SETUP.md
 
   notes/
     daily-log.md               # (optional) personal notes
@@ -69,10 +73,10 @@ api-gateway-proxy-mini/
 
 ## API Endpoints
 
-Current HTTP endpoints (Express / Docker mode):
+Current HTTP endpoints (Express / Docker mode and Lambda / API Gateway mode):
 
 - `GET /status`
-  - Returns basic health/status info about the service.
+  - Returns basic health/status info about the service and DB connectivity.
 
 - `GET /items`
   - Returns all items from the `items` table in Postgres.
@@ -119,13 +123,17 @@ Current HTTP endpoints (Express / Docker mode):
 
 ## Postman
 
-- Environment
-  - `postman/environment/base.json`
-
 - Collection
   - `postman/collections/837632-44454a9e-8cd0-449d-9c27-84e12a22ab54.json`
+- Environment
+  - `postman/environment/base.json` (defines `baseUrl`)
 
-The collection uses a `baseUrl` variable so you can switch environments (local Node, local Docker, AWS, etc.) without changing each request.
+All requests in the collection are intended to use the `{{baseUrl}}` variable. This allows you to switch between:
+
+- Local dev: `http://localhost:3000`
+- AWS HTTP API: `https://<api-id>.execute-api.<region>.amazonaws.com/<stage>`
+
+by simply changing the active Postman environment (or the `baseUrl` value), without duplicating the collection.
 
 ---
 
@@ -193,35 +201,7 @@ The API will be available at:
 http://localhost:3000
 ```
 
-### Test requests
-
-From a terminal:
-
-```bash
-# Health
-curl http://localhost:3000/status
-
-# List items
-curl http://localhost:3000/items
-
-# Get one item by id
-curl http://localhost:3000/items/1
-
-# Create a new item (PowerShell escaping)
-curl -X POST http://localhost:3000/items ^
-  -H "Content-Type: application/json" ^
-  -d "{"name":"New item from API"}"
-
-# Update an item
-curl -X PUT http://localhost:3000/items/1 ^
-  -H "Content-Type: application/json" ^
-  -d "{"name":"Updated name"}"
-
-# Delete an item
-curl -X DELETE http://localhost:3000/items/1
-```
-
-Or using a GUI client (Postman, Insomnia) with the same URLs and JSON bodies.
+You can exercise all endpoints as documented above or via the Postman collection.
 
 ---
 
@@ -253,15 +233,18 @@ The API maps DB rows → JSON with fields:
 
 ---
 
-## Next Steps / Roadmap
+## Cloud Deployment Overview
 
-- Add basic validation and error mapping across all endpoints.
-- Containerize for AWS deployment:
-  - Build + push image to ECR.
-  - ECS/Fargate service with a public ALB and RDS Postgres.
-- Or wire the existing router + controllers to API Gateway + Lambda via `httpApiHandler.js` for the serverless variant.
+The same controller/service layer is used in a Lambda function behind an API Gateway HTTP API, connected to an RDS Postgres instance configured as described in `docs/RDS_SETUP.md`.
 
-For more detail on structure and flows, see:
+High level:
 
-- `docs/ARCHITECTURE.md`
+- API Gateway HTTP API → Lambda (`src/handlers/httpApiHandler.js`)
+- Lambda → router (`src/app/router.js`) → controllers → services
+- Services → DB client (`src/app/db/client.js`) → RDS Postgres (`app_db`)
+
+For step-by-step deployment and Lambda/API Gateway wiring, see:
+
 - `docs/DEPLOYMENT.md`
+- `docs/RDS_SETUP.md`
+- `docs/ARCHITECTURE.md`

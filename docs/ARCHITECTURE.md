@@ -4,7 +4,8 @@ This mini-project is a small but realistic backend you can reuse in multiple env
 
 - Local development (Node + Express)
 - Local development via Docker + Postgres
-- Cloud runtimes (Lambda + API Gateway, or container in ECS/Fargate)
+- Cloud runtimes (Lambda + API Gateway + RDS Postgres)
+- Future container runtime in ECS/Fargate
 
 ---
 
@@ -46,6 +47,7 @@ Client (curl/Postman/Browser)
   - **`healthController.js`**
     - Implements `getHealthStatus(event, context)`.
     - Returns service status, service name, request id, and timestamp.
+    - Performs a lightweight `SELECT 1` DB check (via the shared DB client) so `/status` reflects real database connectivity in both Docker and Lambda modes.
   - **`itemsController.js`**
     - `listItems(event, context)` – fetches all items.
     - `getItemByIdHandler(event, context)` – fetches one item by id.
@@ -65,11 +67,11 @@ Client (curl/Postman/Browser)
   - Wraps a `pg.Pool`.
   - Reads connection details from environment:
     - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`.
+    - Or a single `DATABASE_URL` plus `DB_SSL` for RDS.
   - Exposes:
     - `query(text, params)` – for simple queries.
-    - (Optionally) `getClient()` – for explicit transactions if needed later.
 
-- **PostgreSQL (`db` service in `docker-compose.yml`)**
+- **PostgreSQL (Local – `db` service in `docker-compose.yml`)**
   - Image: `postgres:16-alpine`.
   - Credentials:
     - `POSTGRES_USER=app_user`
@@ -77,6 +79,11 @@ Client (curl/Postman/Browser)
     - `POSTGRES_DB=app_db`
   - Uses a Docker volume for persistent data.
   - Runs initialization script `db/init.sql` on first startup.
+
+- **PostgreSQL (Cloud – RDS Postgres)**
+  - Managed Postgres instance in AWS RDS.
+  - Database: `app_db` (created manually as per `docs/RDS_SETUP.md`).
+  - Lambda connects using the same DB client and environment schema, so services/controllers are identical between local and cloud.
 
 ---
 
@@ -133,37 +140,45 @@ Note the camelCase `createdAt` in JSON vs `created_at` in the DB.
       -> back up the chain as JSON response
   ```
 
-### 2. Lambda + API Gateway Mode (Planned / Partial)
+### 2. Lambda + API Gateway Mode (Implemented)
 
 - **Handler:** `src/handlers/httpApiHandler.js`
 - **Router:** `src/app/router.js`
-- API Gateway HTTP API routes (example):
+- **DB:** RDS Postgres (`app_db`), configured as per `docs/RDS_SETUP.md`
 
-  - `GET /status`
-  - `GET /items`
-  - `GET /items/{id}`
-  - `POST /items`
-  - `PUT /items/{id}`
-  - `DELETE /items/{id}`
+API Gateway HTTP API routes (example):
 
-- Request flow in Lambda mode:
+- `GET /status`
+- `GET /items`
+- `GET /items/{id}`
+- `POST /items`
+- `PUT /items/{id}`
+- `DELETE /items/{id}`
 
-  ```text
-  Client
-    -> API Gateway (HTTP API)
-      -> Lambda (httpApiHandler)
-        -> router.js (routeKey switch)
-          -> controller (health/items)
-          -> services (itemsService)
-          -> DB (future: RDS / DynamoDB)
-  ```
+Request flow in Lambda mode:
+
+```text
+Client
+  -> API Gateway (HTTP API)
+    -> Lambda (httpApiHandler)
+      -> router.js (routeKey switch)
+        -> controller (health/items)
+        -> services (itemsService)
+        -> DB client (pg Pool)
+        -> RDS Postgres (app_db)
+```
 
 - `src/app/utils/response.js` helps format Lambda responses consistently.
+- `src/app/utils/errors.js` standardizes error shapes (`badRequest`, `notFound`, `internalError`) so behavior matches between local and Lambda executions.
 
 This allows you to share controllers/services between:
 
 - A "normal" containerized Node API, and
-- A serverless Lambda function behind API Gateway.
+- A serverless Lambda function behind API Gateway, backed by RDS.
+
+### 3. Future: Container Runtime (ECS/Fargate)
+
+The same container image used locally (via `docker-compose`) can be pushed to ECR and run as an ECS/Fargate service, fronted by an ALB and wired to the same RDS Postgres instance. The internal code and DB client do not change; only environment variables and infrastructure change.
 
 ---
 
@@ -173,14 +188,16 @@ Core environment variables:
 
 - **Express / Docker:**
   - `PORT` (optional, default `3000`)
-- **Database:**
-  - `DB_HOST` (default `localhost` in code; `db` container in docker-compose)
-  - `DB_PORT` (default `5432`)
-  - `DB_USER` (`app_user` in docker-compose)
-  - `DB_PASSWORD` (`app_password` in docker-compose)
-  - `DB_NAME` (`app_db` in docker-compose)
+- **Database (shared between modes):**
+  - `DB_HOST`
+  - `DB_PORT`
+  - `DB_USER`
+  - `DB_PASSWORD`
+  - `DB_NAME`
+  - `DB_SSL` (for RDS; set to `true` if SSL required)
+  - or `DATABASE_URL` plus `DB_SSL`
 
-In `docker-compose.yml`, these are wired automatically for the `api` service.
+In `docker-compose.yml`, these are wired automatically for the `api` service. In Lambda, they are configured via the function’s environment settings in the AWS console.
 
 ---
 
@@ -193,7 +210,7 @@ In `docker-compose.yml`, these are wired automatically for the `api` service.
   - Terraform, CDK, or CloudFormation templates for:
     - VPC, security groups
     - ECS/Fargate service & ALB
-    - RDS (if you want managed Postgres)
+    - RDS (managed Postgres)
   - Or SAM / CDK for Lambda + API Gateway.
 
-This structure is intentionally simple but production-aligned so you can talk through it in interviews and migrate it to real AWS services later.
+This structure is intentionally small but production-aligned so you can talk through it in interviews and migrate it to real AWS services later.

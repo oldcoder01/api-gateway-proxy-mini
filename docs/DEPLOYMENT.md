@@ -4,7 +4,8 @@ This document describes how to:
 
 1. Run the service locally in Docker (current main workflow).
 2. Run the service locally via Node only.
-3. Prepare the service for deployment to AWS (container or Lambda).
+3. Package and deploy the service as an AWS Lambda behind an HTTP API.
+4. (Planned) Deploy the containerized service to ECS/Fargate.
 
 ---
 
@@ -59,7 +60,7 @@ If you prefer to run just Node (e.g., debugging, stepping through):
 2. Set environment variables to point at that DB:
 
    ```bash
-   # Example (PowerShell syntax would differ)
+   # Example (POSIX shells)
    export DB_HOST=localhost
    export DB_PORT=5432
    export DB_USER=app_user
@@ -85,14 +86,16 @@ You can exercise all endpoints as documented in `README.md`.
 
 ---
 
-## 3. Packaging for Lambda (Serverless Variant)
+## 3. Serverless Deployment – Lambda + API Gateway HTTP API
 
 The codebase also supports a Lambda-style entry via:
 
 - `src/handlers/httpApiHandler.js`
 - `src/app/router.js`
 
-### Build a Lambda Zip
+In this mode, controllers and services are reused from the Lambda handler, and the database is RDS Postgres (`app_db`) configured as described in `docs/RDS_SETUP.md`.
+
+### 3.1 Build a Lambda Zip
 
 From project root:
 
@@ -106,7 +109,7 @@ zip -r lambda-package.zip src node_modules package.json
 Compress-Archive -Path src, node_modules, package.json -DestinationPath lambda-package.zip -Force
 ```
 
-### Create / Update Lambda Function (Manual Console Flow)
+### 3.2 Create / Update Lambda Function (Manual Console Flow)
 
 1. In AWS Console → Lambda → **Create function**
    - Author from scratch
@@ -119,34 +122,46 @@ Compress-Archive -Path src, node_modules, package.json -DestinationPath lambda-p
    ```
 
 3. Upload `lambda-package.zip` as the function code.
-4. Save/Deploy the function.
+4. Configure environment variables for RDS (see `docs/RDS_SETUP.md`):
+   - `DB_HOST` – RDS endpoint
+   - `DB_PORT` – usually `5432`
+   - `DB_USER`, `DB_PASSWORD`
+   - `DB_NAME` – `app_db`
+   - `DB_SSL` – `true`
+5. Save/Deploy the function.
 
-### Wire to API Gateway HTTP API (Manual Console Flow)
+You can test directly from the Lambda console using events that set `routeKey` and optional `pathParameters` and `body`.
+
+### 3.3 Wire to API Gateway HTTP API (Manual Console Flow)
 
 1. Create an **HTTP API** in API Gateway.
 2. Add routes:
+
    - `GET /status`
    - `GET /items`
    - `GET /items/{id}`
    - `POST /items`
    - `PUT /items/{id}`
    - `DELETE /items/{id}`
+
 3. For each route, set the integration to your Lambda function.
-4. Deploy to a stage (e.g. default).
-5. Test via the Invoke URL, e.g.:
+4. Deploy to a stage (e.g. `default`).
+5. Copy the **Invoke URL**, e.g.:
 
    ```text
-   GET https://xxxxxx.execute-api.<region>.amazonaws.com/status
+   https://<api-id>.execute-api.<region>.amazonaws.com/default
    ```
 
+6. Use this as the `baseUrl` value in a Postman environment to exercise the cloud deployment with the same collection you use locally.
+
 > Note: For Lambda + API Gateway using Postgres, you will also need:
-> - Network access to the DB (RDS or self-hosted),
+> - Network access to the DB (RDS, configured with public access and SGs suitable for dev, or a VPC attachment for production),
 > - Correct `DB_*` env vars configured on the Lambda function,
-> - Potentially a VPC attachment if you use RDS in private subnets.
+> - SSL enabled (`DB_SSL=true`) if RDS requires encrypted connections.
+
+See [docs/RDS_SETUP.md](docs/RDS_SETUP.md) for full Postgres/RDS wiring details.
 
 ---
-
-See [RDS_SETUP.md](docs/RDS_SETUP.md) for full Postgres/RDS wiring details.
 
 ## 4. Container Deployment to AWS (Planned)
 
@@ -183,8 +198,8 @@ Eventually, this same container image can be deployed to AWS using:
 
 This gives you a clear path from:
 
-- **Local dev** → Docker + Postgres
-- → **Lambda + API Gateway** for serverless
+- **Local dev** → Docker + Postgres  
+- → **Lambda + API Gateway** for serverless  
 - → **ECS/Fargate** for containerized production workloads.
 
 ---
@@ -198,10 +213,10 @@ This gives you a clear path from:
 - Add infra-as-code (Terraform / CDK) to:
   - Create ECR repo.
   - Provision ECS service + ALB.
-  - Optionally create RDS and associated networking.
+  - Provision RDS and associated networking.
 
 For now, the key is that you have **a documented, repeatable process** for:
 
 - Running locally (Node & Docker),
-- Packaging for Lambda,
+- Packaging and deploying to Lambda + API Gateway,
 - And a clear conceptual path to AWS container deployment.
